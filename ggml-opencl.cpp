@@ -433,12 +433,12 @@ __kernel void dequantize_mul_mat_vec_q3_K(__global const struct block_q3_K * xx,
         utmp[3] = ((a[3] >> 0) & kmask2) | (((a[5] >> (0 + 2)) & kmask1) << 4);
 
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +   0] * (s[0] - 32) * (((q[in + 00 +  0] >> 0) & 3) - (h[in +  0] & (1 << 0) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  32] * (s[2] - 32) * (((q[in + 00 +  0] >> 2) & 3) - (h[in +  0] & (1 << 1) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  64] * (s[4] - 32) * (((q[in + 00 +  0] >> 4) & 3) - (h[in +  0] & (1 << 2) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  96] * (s[6] - 32) * (((q[in + 00 +  0] >> 6) & 3) - (h[in +  0] & (1 << 3) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  16] * (s[1] - 32) * (((q[in + 00 + 16] >> 0) & 3) - (h[in + 16] & (1 << 0) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  32] * (s[2] - 32) * (((q[in + 00 +  0] >> 2) & 3) - (h[in +  0] & (1 << 1) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  48] * (s[3] - 32) * (((q[in + 00 + 16] >> 2) & 3) - (h[in + 16] & (1 << 1) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  64] * (s[4] - 32) * (((q[in + 00 +  0] >> 4) & 3) - (h[in +  0] & (1 << 2) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  80] * (s[5] - 32) * (((q[in + 00 + 16] >> 4) & 3) - (h[in + 16] & (1 << 2) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  96] * (s[6] - 32) * (((q[in + 00 +  0] >> 6) & 3) - (h[in +  0] & (1 << 3) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 + 112] * (s[7] - 32) * (((q[in + 00 + 16] >> 6) & 3) - (h[in + 16] & (1 << 3) ? 0 : 4));
         
         utmp[0] = ((a[0] >> 4) & kmask2) | (((a[4] >> (4 + 0)) & kmask1) << 4);
@@ -447,12 +447,12 @@ __kernel void dequantize_mul_mat_vec_q3_K(__global const struct block_q3_K * xx,
         utmp[3] = ((a[3] >> 4) & kmask2) | (((a[5] >> (4 + 2)) & kmask1) << 4);
 
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +   0] * (s[0] - 32) * (((q[in + 32 +  0] >> 0) & 3) - (h[in +  0] & (1 << (4)) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  32] * (s[2] - 32) * (((q[in + 32 +  0] >> 2) & 3) - (h[in +  0] & (1 << (5)) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  64] * (s[4] - 32) * (((q[in + 32 +  0] >> 4) & 3) - (h[in +  0] & (1 << (6)) ? 0 : 4));
-        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  96] * (s[6] - 32) * (((q[in + 32 +  0] >> 6) & 3) - (h[in +  0] & (1 << (7)) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  16] * (s[1] - 32) * (((q[in + 32 + 16] >> 0) & 3) - (h[in + 16] & (1 << (4)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  32] * (s[2] - 32) * (((q[in + 32 +  0] >> 2) & 3) - (h[in +  0] & (1 << (5)) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  48] * (s[3] - 32) * (((q[in + 32 + 16] >> 2) & 3) - (h[in + 16] & (1 << (5)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  64] * (s[4] - 32) * (((q[in + 32 +  0] >> 4) & 3) - (h[in +  0] & (1 << (6)) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  80] * (s[5] - 32) * (((q[in + 32 + 16] >> 4) & 3) - (h[in + 16] & (1 << (6)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  96] * (s[6] - 32) * (((q[in + 32 +  0] >> 6) & 3) - (h[in +  0] & (1 << (7)) ? 0 : 4));
         __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 + 112] * (s[7] - 32) * (((q[in + 32 + 16] >> 6) & 3) - (h[in + 16] & (1 << (7)) ? 0 : 4));
 
         
