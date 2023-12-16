@@ -408,74 +408,71 @@ __kernel void dequantize_mul_mat_vec_q3_K(__global const struct block_q3_K * xx,
     const uint16_t kmask1 = 0x0303;
     const uint16_t kmask2 = 0x0f0f;
 
-    const int row = get_group_id(0);
+    // QK_K = 256
+    const int row = get_global_id(0);
 
     const int num_blocks_per_row = ncols / QK_K;
     const int ib0 = row*num_blocks_per_row + get_global_offset(0);
 
     __global const struct block_q3_K * x = xx + ib0;
 
-    const int tid = get_local_id(0)/K_QUANTS_PER_ITERATION;  // 0...31 or 0...16
-    const int ix  = get_local_id(0)%K_QUANTS_PER_ITERATION;  // 0 or 0,1
-
-    const int n  = K_QUANTS_PER_ITERATION;               // iterations in the inner loop
-    const int step = 16/K_QUANTS_PER_ITERATION;
-    const int im = tid/step;                             // 0 or 1. 0 computes 0..., 1 computes 128...
-    const int in = tid - step*im;                        // 0....15 or 0...7
-
-    const uint8_t m = 1 << (4*im);
-
-    const int l0 = n*in;                                 // 0...15 or 0...14 in steps of 2
-    const int q_offset =  32*im + l0;
-    const int y_offset = 128*im + l0;
-
-    uint16_t utmp[4];
-    const int8_t * s = (const int8_t *)utmp;
-
-    const uint16_t s_shift = 4*im;
-
-    tmp[16 * ix + tid] = 0;
-
-    for (int i = ix; i < num_blocks_per_row; i += K_QUANTS_PER_ITERATION) {
-
-        __global const float   * y  = yy + i * QK_K + y_offset;
-        __global const uint8_t * q = x[i].qs + q_offset;
-        __global const uint8_t * h = x[i].hmask + l0;
-
-        __global const uint16_t * a = (__global const uint16_t *)x[i].scales;
-        utmp[0] = ((a[0] >> s_shift) & kmask2) | (((a[4] >> (s_shift + 0)) & kmask1) << 4);
-        utmp[1] = ((a[1] >> s_shift) & kmask2) | (((a[5] >> (s_shift + 0)) & kmask1) << 4);
-        utmp[2] = ((a[2] >> s_shift) & kmask2) | (((a[4] >> (s_shift + 2)) & kmask1) << 4);
-        utmp[3] = ((a[3] >> s_shift) & kmask2) | (((a[5] >> (s_shift + 2)) & kmask1) << 4);
-
+    float acc = 0;
+    for (int i = 0; i < num_blocks_per_row; i += 1) {\
+        // Superblock loop
         const float d = vload_half(0, &x[i].d);
+        __global const uint16_t * a = (__global const uint16_t *)x[i].scales;
+        __global const float    * y  = yy + i * QK_K;
+        __global const uint8_t  * q = x[i].qs;           // qs goes from 0..64
+        __global const uint8_t  * h = x[i].hmask;              // hmask goes from 0..32
 
-        float sum = 0;
-        for (int l = 0; l < n; ++l) {
-            sum += y[l+ 0] * (s[0] - 32) * (((q[l] >> 0) & 3) - (h[l] & (m << 0) ? 0 : 4))
-                 + y[l+32] * (s[2] - 32) * (((q[l] >> 2) & 3) - (h[l] & (m << 1) ? 0 : 4))
-                 + y[l+64] * (s[4] - 32) * (((q[l] >> 4) & 3) - (h[l] & (m << 2) ? 0 : 4))
-                 + y[l+96] * (s[6] - 32) * (((q[l] >> 6) & 3) - (h[l] & (m << 3) ? 0 : 4));
-            sum += y[l+16] * (s[1] - 32) * (((q[l+16] >> 0) & 3) - (h[l+16] & (m << 0) ? 0 : 4))
-                 + y[l+48] * (s[3] - 32) * (((q[l+16] >> 2) & 3) - (h[l+16] & (m << 1) ? 0 : 4))
-                 + y[l+80] * (s[5] - 32) * (((q[l+16] >> 4) & 3) - (h[l+16] & (m << 2) ? 0 : 4))
-                + y[l+112] * (s[7] - 32) * (((q[l+16] >> 6) & 3) - (h[l+16] & (m << 3) ? 0 : 4));
-        }
-        tmp[16 * ix + tid] += d * sum;
+        uint16_t utmp[4];
+        const int8_t * s = (const int8_t *)utmp;
+        utmp[0] = ((a[0] >> 0) & kmask2) | (((a[4] >> (0 + 0)) & kmask1) << 4);
+        utmp[1] = ((a[1] >> 0) & kmask2) | (((a[5] >> (0 + 0)) & kmask1) << 4);
+        utmp[2] = ((a[2] >> 0) & kmask2) | (((a[4] >> (0 + 2)) & kmask1) << 4);
+        utmp[3] = ((a[3] >> 0) & kmask2) | (((a[5] >> (0 + 2)) & kmask1) << 4);
 
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +   0] * (s[0] - 32) * (((q[in + 00 +  0] >> 0) & 3) - (h[in +  0] & (1 << 0) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  32] * (s[2] - 32) * (((q[in + 00 +  0] >> 2) & 3) - (h[in +  0] & (1 << 1) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  64] * (s[4] - 32) * (((q[in + 00 +  0] >> 4) & 3) - (h[in +  0] & (1 << 2) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  96] * (s[6] - 32) * (((q[in + 00 +  0] >> 6) & 3) - (h[in +  0] & (1 << 3) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  16] * (s[1] - 32) * (((q[in + 00 + 16] >> 0) & 3) - (h[in + 16] & (1 << 0) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  48] * (s[3] - 32) * (((q[in + 00 + 16] >> 2) & 3) - (h[in + 16] & (1 << 1) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 +  80] * (s[5] - 32) * (((q[in + 00 + 16] >> 4) & 3) - (h[in + 16] & (1 << 2) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 000 + 112] * (s[7] - 32) * (((q[in + 00 + 16] >> 6) & 3) - (h[in + 16] & (1 << 3) ? 0 : 4));
+        
+        utmp[0] = ((a[0] >> 4) & kmask2) | (((a[4] >> (4 + 0)) & kmask1) << 4);
+        utmp[1] = ((a[1] >> 4) & kmask2) | (((a[5] >> (4 + 0)) & kmask1) << 4);
+        utmp[2] = ((a[2] >> 4) & kmask2) | (((a[4] >> (4 + 2)) & kmask1) << 4);
+        utmp[3] = ((a[3] >> 4) & kmask2) | (((a[5] >> (4 + 2)) & kmask1) << 4);
+
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +   0] * (s[0] - 32) * (((q[in + 32 +  0] >> 0) & 3) - (h[in +  0] & (1 << (4)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  32] * (s[2] - 32) * (((q[in + 32 +  0] >> 2) & 3) - (h[in +  0] & (1 << (5)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  64] * (s[4] - 32) * (((q[in + 32 +  0] >> 4) & 3) - (h[in +  0] & (1 << (6)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  96] * (s[6] - 32) * (((q[in + 32 +  0] >> 6) & 3) - (h[in +  0] & (1 << (7)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  16] * (s[1] - 32) * (((q[in + 32 + 16] >> 0) & 3) - (h[in + 16] & (1 << (4)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  48] * (s[3] - 32) * (((q[in + 32 + 16] >> 2) & 3) - (h[in + 16] & (1 << (5)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 +  80] * (s[5] - 32) * (((q[in + 32 + 16] >> 4) & 3) - (h[in + 16] & (1 << (6)) ? 0 : 4));
+        __attribute__((opencl_unroll_hint)) for(int in = 0; in < 16; in++) acc += d * y[in + 128 + 112] * (s[7] - 32) * (((q[in + 32 + 16] >> 6) & 3) - (h[in + 16] & (1 << (7)) ? 0 : 4));
+
+        
+
+
+
+
+
+        // for (int j = 0; j < (QK_K / 16); j++) {
+        //     // Block loop
+        //     int shifts[16];
+
+        //     __attribute__((opencl_unroll_hint(8)))
+        //     for(int k = 0; k < 16; k++) {
+                
+        //     }
+        // }
     }
 
-    // sum up partial sums and write back result
-    barrier(CLK_LOCAL_MEM_FENCE);
-    for (int s=16; s>0; s>>=1) {
-        if (tid < s) {
-            tmp[tid] += tmp[tid + s];
-        }
-        barrier(CLK_LOCAL_MEM_FENCE);
-    }
-    if (tid == 0) {
-        dst[row] = tmp[0];
-    }
+    dst[row] = acc;
 }
 
 __kernel void dequantize_mul_mat_vec_q4_K(__global const struct block_q4_K * xx, __local float* tmp, __global float* yy, __global float* dst, const int ncols) {
@@ -1742,7 +1739,11 @@ static void ggml_cl_mul_mat_q_f32(const ggml_tensor * src0, const ggml_tensor * 
                         CL_CHECK(ggml_cl_h2d_tensor_2d(queue, d_Y, 0, src1, i13, i12, events.data() + ev_idx++));
 
                         // compute
-                        const size_t global = ne01 * local;
+                        size_t global = ne01 * local;
+                        if (dmmv == &dequantize_mul_mat_vec_q3_K_cl) {
+                            global = ne01;
+                        }
+
                         const size_t offset = src0->backend == GGML_BACKEND_GPU ? (i03 * ne02 + i02) * x_bps : 0;
                         const cl_int ncols = ne00;
                         events.emplace_back();
